@@ -9,14 +9,15 @@ var JsonifyProps = require("../mixins/jsonify-props.jsx");
 var ApiOptions = require("../perseus-api.jsx").Options;
 
 var EnabledFeatures   = require("../enabled-features.jsx");
-var InputWithExamples = require("../components/input-with-examples.jsx");
 var PropCheckBox      = require("../components/prop-check-box.jsx");
+var MathInput         = require("../components/math-input.jsx");
 var TeX               = require("../tex.jsx"); // OldExpression only
+var TexButtons        = require("../components/tex-buttons.jsx");
 
 var cx = React.addons.classSet;
 var EnabledFeatures = require("../enabled-features.jsx");
 
-var ERROR_MESSAGE = $._("I'm sorry; I don't understand that!");
+var ERROR_MESSAGE = $._("Sorry, I don't understand that!");
 
 // The new, MathQuill input expression widget
 var Expression = React.createClass({
@@ -26,6 +27,8 @@ var Expression = React.createClass({
         value: React.PropTypes.string,
         times: React.PropTypes.bool,
         functions: React.PropTypes.arrayOf(React.PropTypes.string),
+        buttonSet: React.PropTypes.string,
+        buttonsVisible: React.PropTypes.oneOf(['always', 'never', 'focused']),
         enabledFeatures: EnabledFeatures.propTypes,
         apiOptions: ApiOptions.propTypes
     },
@@ -36,7 +39,8 @@ var Expression = React.createClass({
             times: false,
             functions: [],
             enabledFeatures: EnabledFeatures.defaults,
-            apiOptions: ApiOptions.defaults
+            apiOptions: ApiOptions.defaults,
+            buttonSet: 'arithmetic'
         };
     },
 
@@ -58,8 +62,6 @@ var Expression = React.createClass({
     },
 
     render: function() {
-        var shouldShowExamples = this.props.enabledFeatures.toolTipFormats;
-
         // TODO(alex): Style this tooltip to be more consistent with other
         // tooltips on the site; align to left middle (once possible)
         var errorTooltip = <span className="error-tooltip">
@@ -97,20 +99,27 @@ var Expression = React.createClass({
         });
 
         return <span className={className}>
-            <InputWithExamples
-                type="math"
+            <MathInput
                 value={this.props.value}
-                onChange={(value) => this.change("value", value)}
-                examples={this.examples()}
-                shouldShowExamples={shouldShowExamples}
+                onChange={this.change("value")}
                 convertDotToTimes={this.props.times}
+                buttonSet={this.props.buttonSet}
+                buttonsVisible={this.props.buttonsVisible || "focused"}
                 ref="input" />
             {this.state.showErrorTooltip && errorTooltip}
         </span>;
     },
 
+    handleChange: function(value) {
+        this.change({ value });
+    },
+
     errorTimeout: null,
 
+    // Whenever the input value changes, attempt to parse it.
+    //
+    // Clear any errors if this parse succeeds, show an error within a second
+    // if it fails.
     componentWillReceiveProps: function(nextProps) {
         if (!_.isEqual(this.props.value, nextProps.value) ||
             !_.isEqual(this.props.functions, nextProps.functions)) {
@@ -144,31 +153,14 @@ var Expression = React.createClass({
         return true;
     },
 
+    // HACK(joel)
+    insert: function(text) {
+        this.refs.input.handleInsert(text);
+    },
+
     simpleValidate: function(rubric, onInputError) {
         onInputError = onInputError || function() { };
         return Expression.validate(this.toJSON(), rubric, onInputError);
-    },
-
-    examples: function() {
-        var mult = $._("For $2\\cdot2$, enter **2*2**");
-        if (this.props.times) {
-            mult = mult.replace(/\\cdot/g, "\\times");
-        }
-
-        return [
-            mult,
-            $._("For $\\dfrac{1}{2}x$, enter **1/2 x**"),
-            $._("For $x^{y}+z$, enter **x^y +z**"),
-            $._("For $\\sqrt{x}$, enter **sqrtx**"),
-            $._("For $\\pi$, enter **pi**"),
-            $._("For $\\sin (\\theta)$, enter **sin(theta)**"),
-            $._("For $\\log_{10}(x)$, enter **log(x)**"),
-            $._("For $\\log_{2}(x)$, enter **log\_2 (x)**"),
-            $._("For $\\le$ or $\\ge$, enter **<=** or **>=**"),
-            $._("For $\\neq$, enter **<>**"),
-            $._("Move around with arrow keys"),
-            $._("Use spacebar to exit fractions")
-        ];
     },
 
     statics: {
@@ -259,17 +251,14 @@ var OldExpression = React.createClass({
 
     render: function() {
         var result = this.parse(this.props.value);
-        var shouldShowExamples = this.props.enabledFeatures.toolTipFormats;
 
         return <span className="perseus-widget-expression-old">
-            <InputWithExamples
+            <MathInput
                     ref="input"
                     value={this.props.value}
                     onKeyDown={this.handleKeyDown}
                     onKeyPress={this.handleKeyPress}
                     onChange={this.handleChange}
-                    examples={this.examples()}
-                    shouldShowExamples={shouldShowExamples}
                     interceptFocus={this._getInterceptFocus()} />
             <span className="output">
                 <span className="tex"
@@ -451,29 +440,6 @@ var OldExpression = React.createClass({
         return Expression.validate(this.toJSON(), rubric, onInputError);
     },
 
-    examples: function() {
-        var mult = $._("For $2\\cdot2$, enter **2*2**");
-        if (this.props.times) {
-            mult = mult.replace(/\\cdot/g, "\\times");
-        }
-
-        return [
-            $._("**Acceptable Formats**"),
-            mult,
-            $._("For $3y$, enter **3y** or **3*y**"),
-            $._("For $\\dfrac{1}{x}$, enter **1/x**"),
-            $._("For $\\dfrac{1}{xy}$, enter **1/(xy)**"),
-            $._("For $\\dfrac{2}{x + 3}$, enter **2/(x + 3)**"),
-            $._("For $x^{y}$, enter **x^y**"),
-            $._("For $x^{2/3}$, enter **x^(2/3)**"),
-            $._("For $\\sqrt{x}$, enter **sqrt(x)**"),
-            $._("For $\\pi$, enter **pi**"),
-            $._("For $\\sin \\theta$, enter **sin(theta)**"),
-            $._("For $\\le$ or $\\ge$, enter **<=** or **>=**"),
-            $._("For $\\neq$, enter **=/=**")
-        ];
-    },
-
     statics: {
         displayMode: "block"
     }
@@ -487,15 +453,18 @@ var ExpressionEditor = React.createClass({
         form: React.PropTypes.bool,
         simplify: React.PropTypes.bool,
         times: React.PropTypes.bool,
-        functions: React.PropTypes.arrayOf(React.PropTypes.string)
+        functions: React.PropTypes.arrayOf(React.PropTypes.string),
+        buttonSet: React.PropTypes.string
     },
+
     getDefaultProps: function() {
         return {
             value: "",
             form: false,
             simplify: false,
             times: false,
-            functions: ["f", "g", "h"]
+            functions: ["f", "g", "h"],
+            buttonSet: "arithmetic"
         };
     },
 
@@ -531,7 +500,9 @@ var ExpressionEditor = React.createClass({
             value: this.props.value,
             times: this.props.times,
             functions: this.props.functions,
-            onChange: (newProps) => this.change(newProps)
+            onChange: (newProps) => this.change(newProps),
+            buttonsVisible: "never",
+            buttonSet: this.props.buttonSet
         };
 
         var expression = this.state.isTex ? Expression : OldExpression;
@@ -540,7 +511,22 @@ var ExpressionEditor = React.createClass({
             <div><label>
                 Correct answer:{' '}
                 {expression(expressionProps)}
+                <TexButtons className="clearfix"
+                            buttonSet={this.props.buttonSet}
+                            onInsert={this.handleInsert} />
             </label></div>
+
+            <div style={{marginBottom: 10, marginTop: 5}}>
+                <label>
+                    {"Button set: "}
+                    <select onChange={this.handleButtonSet}
+                            value={this.props.buttonSet}>
+                        {_(TexButtons.buttonSets).map((set, name) => {
+                            return <option value={name}>{name}</option>;
+                        })}
+                    </select>
+                </label>
+            </div>
 
             <div>
                 <PropCheckBox
@@ -602,10 +588,18 @@ var ExpressionEditor = React.createClass({
         </div>;
     },
 
+    handleInsert: function(text) {
+        this.refs.expression.insert(text);
+    },
+
     handleFunctions: function(e) {
         var newProps = {};
         newProps.functions = _.compact(e.target.value.split(/[ ,]+/));
         this.props.onChange(newProps);
+    },
+
+    handleButtonSet: function(e) {
+        this.props.onChange({ buttonSet: e.target.value });
     },
 
     focus: function() {
@@ -623,6 +617,6 @@ module.exports = {
     },
     editor: ExpressionEditor,
     transform: (editorProps) => {
-        return _.pick(editorProps, "times", "functions");
+        return _.pick(editorProps, "times", "functions", "buttonSet");
     }
 };
