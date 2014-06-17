@@ -24,9 +24,9 @@ server: install
 
 demo:
 	git checkout gh-pages
-	git reset --hard origin/master
+	git reset --hard tmp-github-io
 	make build
-	git add -f build/perseus.js
+	git add -f build/perseus-0.js
 	git commit -nm 'demo update'
 	git checkout master
 	git push -f origin gh-pages:gh-pages
